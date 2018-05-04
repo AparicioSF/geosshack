@@ -1,0 +1,253 @@
+
+Map.centerObject(roi,10)
+
+//Select dates 
+var startW = ee.Date('2018-11-01')
+var finishW = ee.Date('2018-12-31')
+var startS = ee.Date('2018-03-01')
+var finishS = ee.Date('2018-03-31')
+
+
+////////////////////////                        ///////////////////////////////////     
+////////////////////////          S2            ///////////////////////////////////     
+////////////////////////                        /////////////////////////////////// 
+
+var S2 = ee.ImageCollection('COPERNICUS/S2')
+       // .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 10))
+        .filterBounds(roi)   
+  //      .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 25))
+    //    .filterDate(startS, finishS)
+        .filterDate('2018-03-29', '2018-03-30');
+        
+print(S2.count(), 'Number of S2 images 2 months in winter' )        
+
+Map.addLayer(ee.Image(S2.min().clip(roi)), {bands: ['B4', 'B3', 'B2'], min:0, max:3000, gamma: 1.62}, 'S2 Spring');
+
+//Load sentinel1 SAR data collection filtered by date and location
+var S1 = ee.ImageCollection('COPERNICUS/S1_GRD')
+        .filterBounds(roi);
+
+////////////////////////                        ///////////////////////////////////     
+////////////////////////          VV            ///////////////////////////////////     
+////////////////////////                        ///////////////////////////////////     
+
+//Sentinel1 SAR data filtered by metadata to get images with HH dual polarization and interferometric wide swath mode
+var VVWinter = S1
+        .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV'))
+        .filter(ee.Filter.eq('instrumentMode', 'IW'))
+        .filterDate(startW, finishW)
+        .select('VV');
+        
+var VVSpring = S1
+        .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV'))
+        .filter(ee.Filter.eq('instrumentMode', 'IW'))
+    //    .filterDate(startS, finishS)
+        .filterDate('2018-03-29', '2018-03-30')
+        .select('VV'); //not sure about this one
+
+var VVSpringpast = S1
+        .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV'))
+        .filter(ee.Filter.eq('instrumentMode', 'IW'))
+        .filterDate('2018-02-27', '2018-02-28')
+        .select('VV'); //not sure about this one
+
+        
+print(VVWinter.count(), 'Number of VV during 1 month winter')
+print(VVSpring.count(), 'Number of VV during 1 month spring')
+//Map.addLayer(ee.Image(VVWinter.max()).clip(roi), {palette:'black,white', min:-14, max:-3}, 'VV max Winter');
+Map.addLayer(ee.Image(VVSpring.max()).clip(roi), {palette:'black,white', min:-22, max:-0.4}, 'VV max Spring');
+Map.addLayer(ee.Image(VVSpringpast.max()).clip(roi), {palette:'black,white', min:-22, max:-0.4}, 'VV max Spring past');
+////////////////////////                        ///////////////////////////////////     
+////////////////////////          HH            ///////////////////////////////////     
+////////////////////////                        ///////////////////////////////////   
+
+//Sentinel1 SAR data filtered by metadata to get images with HH dual polarization and interferometric wide swath mode
+var HHWinter = S1
+        .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'HH'))
+        .filter(ee.Filter.eq('instrumentMode', 'IW'))
+        .filterDate(startW, finishW)
+        .select('HH');
+        
+var HHSpring = S1
+        .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'HH'))
+        .filter(ee.Filter.eq('instrumentMode', 'IW'))
+    //    .filterDate(startS, finishS)
+        .filterDate('2018-03-29', '2018-03-30')
+        .select('HH'); //not sure about this one
+        
+print(HHWinter.count(), 'Number of HH during 1 month winter')
+print(HHSpring.count(), 'Number of HH during 1 month spring')
+//Map.addLayer(ee.Image(HHWinter.max()).clip(roi), {palette:'black,white', min:-10, max:2}, 'HH max Winter');
+//Map.addLayer(ee.Image(HHSpring.max()).clip(roi), {palette:'black,white', min:-10, max:2}, 'HH max Spring');
+
+////////////////////////                        ///////////////////////////////////     
+////////////////////////          VH            ///////////////////////////////////     
+////////////////////////                        /////////////////////////////////// 
+
+        
+var VHWinter = S1
+        .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VH'))
+        .filter(ee.Filter.eq('instrumentMode', 'IW'))
+        .filterDate(startW, finishW)
+        .select('VH');
+        
+var VHSpring = S1
+        .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VH'))
+        .filter(ee.Filter.eq('instrumentMode', 'IW'))
+    //    .filterDate(startS, finishS)
+        .filterDate('2018-03-29', '2018-03-30')
+        .select('VH'); 
+        
+print(VHWinter.count(), 'Number of VH during 1 month winter')
+print(VHSpring.count(), 'Number of VH during 1 month spring')
+//Map.addLayer(ee.Image(VHWinter.max()).clip(roi), {palette:'black,white', min:-10, max:2}, 'VH max Winter');
+Map.addLayer(ee.Image(VHSpring.max()).clip(roi), {palette:'black,white', min:-27, max:-0.7}, 'VH max Spring');
+
+
+////////////////////////                        ///////////////////////////////////     
+////////////////////////    COMPOSITE           ///////////////////////////////////     
+////////////////////////                        /////////////////////////////////// 
+
+
+var VVpast = ee.Image(VVSpringpast.max()).clip(roi);
+var VH = ee.Image(VHSpring.max()).clip(roi);
+var VV = ee.Image(VVSpring.max()).clip(roi);
+var VVVH = VV.divide(VH)
+var VHVV = VH.divide(VV)
+var VVdif = VVpast.subtract(VV);
+
+
+//Synthetic blue band is the ratio of VV to VH (which changes to difference for decibels).
+
+
+var composite1 = ee.Image.cat([
+  VV,
+  VH,
+  VVVH
+  ]).focal_median();
+  
+var composite2 = ee.Image.cat([
+  VV,
+  VH,
+  VVVH
+  ]).focal_median();
+  
+var composite3 = ee.Image.cat([
+  VV,
+  VH,
+  VV
+  ]).focal_median();
+  
+var composite4 = ee.Image.cat([
+  VVdif,
+  VV,
+  VV
+  ]).focal_median();  
+
+Map.addLayer(composite1, {min: [-25, -20, -25], max: [0, -5, 15]}, 'VV,VH,VVVH', false);
+Map.addLayer(composite2, {min: [-16, -27, 2.1045], max: [-2, -8, 11.303]}, 'VV,VH,VHVV ', false);
+Map.addLayer(composite3, vis_vvvhvv, 'VV,VH,VV ');
+Map.addLayer(composite4, {}, 'Composite different dates');
+Map.addLayer(VVdif, vis_vvdif, 'VV dif');
+
+
+
+
+////////////////////////                        ///////////////////////////////////     
+////////////////////////  SUP CLASSIFICATION    ///////////////////////////////////     
+////////////////////////                        /////////////////////////////////// 
+
+var polygons = thinice.merge(thickice).merge(land).merge(water)
+var bands = ['VV', 'VH'];
+var sarimage = VV.addBands(VH);
+
+// Creation of training data 
+var training = sarimage.select(bands).sampleRegions({
+  collection: polygons, 
+  properties: ['landcover'], 
+  scale: 30, 
+  tileScale: 4
+});
+
+
+
+// Training a CART classifier with default parameters.
+var trained = ee.Classifier.cart().train(training, 'landcover', bands);
+
+// Classify the image with the same bands used for training.
+var classified = sarimage.select(bands).classify(trained);
+
+
+Map.addLayer(classified, {min: 0, max:3, palette: 'red,orange,green,blue'}, 'Classification', false);
+
+
+
+////////////////////////                        ///////////////////////////////////     
+////////////////////////       MASKING          ///////////////////////////////////     
+////////////////////////                        ///////////////////////////////////
+
+
+var WATER_MASK = ee.Image('UMD/hansen/global_forest_change_2015').select('datamask').neq(1);
+var masked = sarimage.updateMask(WATER_MASK);
+        //  } else if (masking == 'mask water') {
+        //    transformed = transformed.updateMask(app.WATER_MASK.not());
+Map.addLayer(masked, {bands: 'VV', min: -23, max: -4.7} , 'Mask test', false);
+
+var VVdifmasked = VVdif.updateMask(WATER_MASK);
+Map.addLayer(VVdifmasked, vis_vvdif, 'VVdif water')
+
+
+////////////////////////                        ///////////////////////////////////     
+////////////////////////  THRESHOLDING          ///////////////////////////////////     
+////////////////////////                        /////////////////////////////////// 
+
+var threshold = ee.Number(-10);
+var watermap = sarimage.mask(sarimage.lt(-24));
+Map.addLayer(watermap, {} , 'Threshold Water');
+
+     
+////////////////////////                        ///////////////////////////////////     
+////////////////////////  UNSUP CLASSIFICATION ///////////////////////////////////     
+////////////////////////                        /////////////////////////////////// 
+
+// Make the training dataset S1
+var trainingS1 = masked.select('VV').sample({
+  region: roi,
+  scale: 30, 
+  numPixels: 5000,
+  tileScale: 16
+});
+
+
+// Instantiate the clusterer and train it.
+var clustererS1 = ee.Clusterer.wekaKMeans(3).train(trainingS1);
+
+// Cluster the input using the trained clusterer.
+var resultS1 = masked.cluster(clustererS1);
+
+var smooth = resultS1.focal_median(5, 'circle', 'meters');
+//Map.addLayer(smooth.clip(roi), {palette:'black,white', min:-27, max:-0.7}, 'VH max Spring Smoothed');
+
+// Display the clusters with random colors.
+Map.addLayer(resultS1.randomVisualizer(), {}, 'Unsupervised S1');
+Map.addLayer(smooth, {min: 0, max:2, palette: 'green,red,orange'}, 'Unsupervised Smoothed S1');
+
+
+
+
+//Sentinel1 SAR data filtered to get images of descending and ascending angle
+
+//var HHascending = HH.filter(ee.Filter.eq('orbitProperties_pass', 'ASCENDING'));
+//var HHdescending = HH.filter(ee.Filter.eq('orbitProperties_pass', 'DESCENDING'));
+
+//Create a composite with the means of different look angles
+//var composite = ee.Image.cat([
+//  HHascending.select('HH').mean(),
+//  ee.ImageCollection(HHascending.select('HH').merge(HHdescending.select('HH'))).mean(),
+//  HHdescending.select('HH').mean()
+//]).focal_median();
+        
+//Visualize the composite
+//Map.addLayer(composite.clip(roi),{min: [-25, -20], max: [0, 10]}, 'Composite');
+
+        
