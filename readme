@@ -1,4 +1,5 @@
 This code is for the #geosshack challenge "connecting artic voices"
 
-This includes only the satellite image analysis part done in Google earth engine
+This includes the satellite image part done in Google Earth Engine, namely optical visualization (Sentinel-2) and several radar visualizations (Sentinel-1):
+different polarizations, composites, threshold and classification map for easier interpretation of non-technical users.
 The mobile app is in concept stage only and there is no actual code available for that.
